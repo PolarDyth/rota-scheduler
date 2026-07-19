@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdftotext -layout \"Schedule Editor.pdf\" -)",
+      "Bash(pdfinfo \"Schedule Editor.pdf\")",
+      "Bash(npm install *)",
+      "Bash(npx tsx *)",
+      "Bash(npx shadcn@latest init --help)",
+      "Bash(npx shadcn@latest init -d --force)",
+      "Bash(npx shadcn@latest add button card input label select table tabs checkbox dialog separator badge tooltip accordion radio-group switch alert -y)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(npx shadcn@latest add popover -y)",
+      "Bash(echo \"exit=$?\")"
+    ]
+  }
+}
