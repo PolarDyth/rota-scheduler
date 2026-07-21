@@ -1,3 +1,4 @@
+import './polyfills';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   Employee,
