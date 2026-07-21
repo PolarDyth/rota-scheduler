@@ -72,11 +72,12 @@ export async function uploadPdf(
     return await withTimeout(extractRota(file), PARSE_TIMEOUT_MS);
   } catch (err) {
     console.error('uploadPdf failed:', err);
+    const detail = err instanceof Error ? err.message : String(err);
     return {
       error:
         err instanceof Error && err.name === 'TimeoutError'
           ? 'The PDF took too long to read. Please try a smaller or simpler file.'
-          : 'We could not read that PDF. Please check it is exported from Schedule Editor.',
+          : `We could not read that PDF (${detail}). Please check it is exported from Schedule Editor.`,
     };
   }
 }

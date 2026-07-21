@@ -1,5 +1,3 @@
-import './polyfills';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   Employee,
   ExtractedRota,
@@ -34,6 +32,12 @@ const NOISE_TOKENS = new Set(['B', 'BB', '']);
 const NAME_COLUMN_X = 60;
 
 export async function extractRota(input: File | ArrayBuffer): Promise<ExtractedRota> {
+  // Install Node-side stubs for DOMMatrix/ImageData/Path2D *before* pdfjs-dist
+  // evaluates its module-load constant `new DOMMatrix()`. Dynamic import guarantees
+  // ordering regardless of how Turbopack chunks the static imports below.
+  await import('./polyfills');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
   const buffer = input instanceof File ? await input.arrayBuffer() : input;
   const bytes = new Uint8Array(buffer);
   if (bytes.length < 5 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {

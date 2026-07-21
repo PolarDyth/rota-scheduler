@@ -12,7 +12,10 @@
       "Bash(npm run *)",
       "Bash(curl -s http://localhost:3000/)",
       "Bash(npx shadcn@latest add popover -y)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(curl -s http://localhost:3000/ -o /dev/null -w \"%{http_code}\\\\n\")",
+      "Bash(curl -s -X POST http://localhost:3456/ -H \"Content-Type: multipart/form-data\" -F \"pdf=@Schedule Editor.pdf\" -o /tmp/upload-resp.html -w \"HTTP %{http_code}\\\\n\")",
+      "Read(//tmp/**)"
     ]
   }
 }

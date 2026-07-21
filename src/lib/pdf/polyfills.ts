@@ -4,6 +4,8 @@
 // that native package isn't installed, so the module crashes on import. We only
 // do text extraction — no canvas rendering — so inert stubs are sufficient.
 
+export {};
+
 if (typeof globalThis.DOMMatrix === 'undefined') {
   class DOMMatrixStub {
     a = 1;
