@@ -31,12 +31,29 @@ const DAY_RE = /^[A-Z][a-z]+day\b/;
 const NOISE_TOKENS = new Set(['B', 'BB', '']);
 const NAME_COLUMN_X = 60;
 
+type PdfjsModule = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
+
+let pdfjsPromise: Promise<PdfjsModule> | null = null;
+
+function loadPdfjs(): Promise<PdfjsModule> {
+  if (pdfjsPromise) return pdfjsPromise;
+  pdfjsPromise = (async () => {
+    if (typeof window !== 'undefined') {
+      const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.mjs',
+        import.meta.url
+      ).toString();
+      return pdfjs as unknown as PdfjsModule;
+    }
+    await import('./polyfills');
+    return await import('pdfjs-dist/legacy/build/pdf.mjs');
+  })();
+  return pdfjsPromise;
+}
+
 export async function extractRota(input: File | ArrayBuffer): Promise<ExtractedRota> {
-  // Install Node-side stubs for DOMMatrix/ImageData/Path2D *before* pdfjs-dist
-  // evaluates its module-load constant `new DOMMatrix()`. Dynamic import guarantees
-  // ordering regardless of how Turbopack chunks the static imports below.
-  await import('./polyfills');
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjs = await loadPdfjs();
 
   const buffer = input instanceof File ? await input.arrayBuffer() : input;
   const bytes = new Uint8Array(buffer);

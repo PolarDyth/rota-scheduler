@@ -17,7 +17,7 @@ npx tsx scripts/test-extract.ts    # Parse Schedule Editor.pdf → verify employ
 npx tsx scripts/test-scheduler.ts  # Run end-to-end extract + schedule + print stats
 ```
 
-`pdfjs-dist` requires `serverExternalPackages: ['pdfjs-dist']` in `next.config.ts` — don't remove it. The extractor imports the legacy build (`pdfjs-dist/legacy/build/pdf.mjs`).
+`pdfjs-dist` runs client-side: the browser uses the modern build (`pdfjs-dist/build/pdf.mjs`) with the worker bundled via `new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url)`. The smoke scripts use the legacy build (`pdfjs-dist/legacy/build/pdf.mjs`) plus `src/lib/pdf/polyfills.ts` because Node lacks `DOMMatrix`/`ImageData`/`Path2D`. `loadPdfjs()` in `extractRota.ts` picks the right path via `typeof window !== 'undefined'`.
 
 A sample `Schedule Editor.pdf` lives at the repo root — use it for extraction testing.
 
@@ -131,8 +131,7 @@ Coordinate-based parsing via `pdfjs-dist`'s `getTextContent()`. Algorithm:
 
 ### Next.js 16 specifics
 
-- Server Action (`'use server'`) for PDF upload in `src/app/actions/uploadPdf.ts`
+- PDF extraction runs fully client-side (`UploadStep.tsx` dynamic-imports `extractRota` on submit — no server action, no round-trip)
 - All interactive components are `'use client'`
 - `useSearchParams` requires Suspense boundary (page.tsx wraps in `<Suspense>`)
-- `useActionState` (not `useFormState`) from `react`
 - `params`/`searchParams` are async — but we don't read them server-side here

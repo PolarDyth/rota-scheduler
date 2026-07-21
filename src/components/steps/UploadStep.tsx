@@ -1,8 +1,7 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { UploadCloud, FileText, Loader2 } from 'lucide-react';
-import { uploadPdf } from '@/app/actions/uploadPdf';
 import type { ExtractedRota } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +13,8 @@ import {
 } from '@/components/ui/card';
 import { InfoAlert } from '@/components/InfoAlert';
 
+const MAX_BYTES = 10 * 1024 * 1024;
+
 interface Props {
   onExtracted: (rota: ExtractedRota) => void;
 }
@@ -21,18 +22,38 @@ interface Props {
 export function UploadStep({ onExtracted }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [state, action, pending] = useActionState(
-    async (_prev: unknown, formData: FormData) => {
-      const result = await uploadPdf(formData);
-      if ('error' in result) {
-        return { error: result.error };
-      }
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const file = inputRef.current?.files?.[0];
+    if (!file) {
+      setError('Please choose a PDF first.');
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setError('That file is too large. Please upload a PDF under 10 MB.');
+      return;
+    }
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setError('Expected a PDF file.');
+      return;
+    }
+
+    setPending(true);
+    setError(null);
+    try {
+      const { extractRota } = await import('@/lib/pdf/extractRota');
+      const result = await extractRota(file);
       onExtracted(result);
-      return null;
-    },
-    null
-  );
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(`We could not read that PDF (${detail}).`);
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -45,7 +66,7 @@ export function UploadStep({ onExtracted }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={action} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <label
               htmlFor="pdf-file"
               className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-border bg-muted/50 p-10 text-center transition-colors hover:border-accent hover:bg-muted"
@@ -77,14 +98,18 @@ export function UploadStep({ onExtracted }: Props) {
               />
             </label>
 
-            {state?.error && (
+            {error && (
               <InfoAlert tone="error" title="We couldn&apos;t read that file">
-                {state.error}. Please check it&apos;s a PDF exported from Schedule Editor and
-                try again.
+                {error}
               </InfoAlert>
             )}
 
-            <Button type="submit" disabled={pending} size="lg" className="w-full">
+            <Button
+              type="submit"
+              disabled={pending}
+              size="lg"
+              className="w-full"
+            >
               {pending ? (
                 <>
                   <Loader2 className="size-4 animate-spin" aria-hidden />
