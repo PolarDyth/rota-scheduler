@@ -1,9 +1,11 @@
 'use client';
 
-import { Sun } from 'lucide-react';
+import { useState } from 'react';
+import { Sun, Check, Pencil } from 'lucide-react';
 import { JOBS, specialisedRoleLabel, formatSlot } from '@/lib/scheduler/jobs';
 import type { Employee, Hour, JobId, ScheduleResult, Slot, StoreHours } from '@/lib/types';
 import { isOpenSlot } from '@/lib/scheduler/storeHours';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface Props {
   employees: Employee[];
@@ -11,6 +13,7 @@ interface Props {
   slots: Slot[];
   result: ScheduleResult;
   storeHours?: StoreHours;
+  onEditBlock?: (empId: string, startSlot: Slot, length: number, newJob: JobId) => void;
 }
 
 const SLOT_WIDTH = 18;
@@ -21,6 +24,20 @@ interface Run {
   length: number;
   job: JobId;
 }
+
+interface EditTarget {
+  empId: string;
+  slot: Slot;
+  length: number;
+  job: JobId;
+}
+
+const PICKER_GROUPS: { label: string; jobs: JobId[] }[] = [
+  { label: 'Trading', jobs: ['tills', 'hosting', 'clickCollect', 'fittingMens', 'fittingWomens'] },
+  { label: 'General', jobs: ['repro', 'standards', 'delivery'] },
+  { label: 'Specialised', jobs: ['lingerie', 'bureau', 'vm', 'isf'] },
+  { label: 'Status', jobs: ['break', 'idle'] },
+];
 
 function getRuns(slots: Slot[], rowSchedule: Partial<Record<Slot, JobId>>): Run[] {
   const rawRuns: Run[] = [];
@@ -57,8 +74,17 @@ export function ScheduleGrid({
   slots,
   result,
   storeHours,
+  onEditBlock,
 }: Props) {
   const totalWidth = NAME_WIDTH + slots.length * SLOT_WIDTH;
+  const [editing, setEditing] = useState<EditTarget | null>(null);
+
+  function pick(job: JobId) {
+    if (editing && onEditBlock) {
+      onEditBlock(editing.empId, editing.slot, editing.length, job);
+    }
+    setEditing(null);
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -122,11 +148,16 @@ export function ScheduleGrid({
                   const showText =
                     run.length >= 2 && run.job !== 'off' && meta.short.length > 0;
                   const slotOpen = storeHours ? isOpenSlot(run.slot, storeHours) : true;
+                  const editable = !!onEditBlock && run.job !== 'off';
+                  const isEditing =
+                    editing?.empId === e.id && editing?.slot === run.slot && editing?.length === run.length;
+                  const timeLabel = `${formatSlot(run.slot)}–${formatSlot(run.slot + run.length * 15)}`;
                   return (
                     <td
                       key={run.slot}
                       colSpan={run.length}
-                      title={`${formatSlot(run.slot)}–${formatSlot(run.slot + run.length * 15)} — ${meta.label}${slotOpen ? '' : ' (closed)'}`}
+                      className={editable ? 'group' : undefined}
+                      title={`${timeLabel} — ${meta.label}${slotOpen ? '' : ' (closed)'}`}
                       style={{
                         background: meta.colour,
                         padding: 0,
@@ -135,12 +166,86 @@ export function ScheduleGrid({
                         opacity: run.job === 'off' ? 0.3 : 1,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        position: editable ? 'relative' : undefined,
+                        cursor: editable ? 'pointer' : run.job === 'off' ? 'not-allowed' : 'default',
                       }}
                     >
                       {showText && (
-                        <span className="block truncate px-1 text-[10px] font-semibold leading-none text-foreground">
+                        <span className="block truncate px-1 text-[10px] font-semibold leading-none text-foreground pointer-events-none">
                           {meta.short}
                         </span>
+                      )}
+                      {editable && (
+                        <>
+                          <Pencil
+                            className="no-print pointer-events-none absolute right-0.5 top-0.5 size-2.5 text-foreground opacity-0 transition-opacity group-hover:opacity-70"
+                            aria-hidden
+                          />
+                          <Popover
+                            open={isEditing}
+                            onOpenChange={(o) => {
+                              if (o) setEditing({ empId: e.id, slot: run.slot, length: run.length, job: run.job });
+                              else setEditing(null);
+                            }}
+                          >
+                            <PopoverTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  className="no-print absolute inset-0 h-full w-full bg-transparent transition-all group-hover:bg-foreground/5 group-hover:ring-2 group-hover:ring-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                  aria-label={`${e.name} ${timeLabel} — ${meta.label} — click to change`}
+                                />
+                              }
+                            />
+                            {isEditing && (
+                              <PopoverContent
+                                className="w-72 p-2"
+                                align="start"
+                                sideOffset={4}
+                              >
+                                <div className="mb-2 px-1">
+                                  <div className="text-sm font-semibold leading-tight">{e.name}</div>
+                                  <div className="font-mono text-[11px] text-muted-foreground">
+                                    {timeLabel} · current: {meta.label}
+                                  </div>
+                                </div>
+                                <div className="no-print flex max-h-80 flex-col gap-2 overflow-y-auto">
+                                  {PICKER_GROUPS.map((group) => (
+                                    <div key={group.label} className="space-y-1">
+                                      <div className="px-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                        {group.label}
+                                      </div>
+                                      {group.jobs.map((jobId) => {
+                                        const jobMeta = JOBS[jobId];
+                                        const current = run.job === jobId;
+                                        return (
+                                          <button
+                                            key={jobId}
+                                            type="button"
+                                            onClick={() => pick(jobId)}
+                                            className="flex w-full items-center gap-2 rounded-md border border-border px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary"
+                                          >
+                                            <span
+                                              className="size-4 shrink-0 rounded-sm border border-border"
+                                              style={{ background: jobMeta.colour }}
+                                              aria-hidden
+                                            />
+                                            <span className="flex-1 font-medium text-foreground">
+                                              {jobMeta.label}
+                                            </span>
+                                            {current && (
+                                              <Check className="size-3.5 text-accent" aria-hidden />
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            )}
+                          </Popover>
+                        </>
                       )}
                     </td>
                   );

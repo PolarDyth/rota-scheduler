@@ -7,6 +7,7 @@ import type {
   ExtractedRota,
   JobId,
   ScheduleResult,
+  Slot,
   StaffingRule,
   StoreHours,
 } from '@/lib/types';
@@ -37,6 +38,7 @@ interface FlowState {
   priorityOrder: JobId[];
   maxRoleBlock: number;
   schedule: ScheduleResult | null;
+  scheduleManuallyEdited: boolean;
   storeHours?: StoreHours;
   completedSteps: Step[];
 }
@@ -74,6 +76,7 @@ const INITIAL: FlowState = {
   priorityOrder: [...PRIORITY_ORDER],
   maxRoleBlock: 2,
   schedule: null,
+  scheduleManuallyEdited: false,
   completedSteps: [],
 };
 
@@ -94,6 +97,9 @@ function Flow() {
         }
         if (!Array.isArray(parsed.completedSteps)) {
           parsed.completedSteps = parsed.step === 'upload' ? [] : [parsed.step];
+        }
+        if (typeof parsed.scheduleManuallyEdited !== 'boolean') {
+          parsed.scheduleManuallyEdited = false;
         }
         setState(parsed);
         syncUrl(parsed.step);
@@ -149,6 +155,7 @@ function Flow() {
       priorityOrder: [...PRIORITY_ORDER],
       maxRoleBlock: 2,
       schedule: null,
+      scheduleManuallyEdited: false,
       storeHours,
       completedSteps: ['upload'],
     });
@@ -186,10 +193,29 @@ function Flow() {
       ...s,
       step: 'schedule',
       schedule: result,
+      scheduleManuallyEdited: false,
       storeHours,
       completedSteps: completed,
     }));
     syncUrl('schedule');
+  }
+
+  function handleEditBlock(empId: string, startSlot: Slot, length: number, newJob: JobId) {
+    setState((s) => {
+      if (!s.schedule) return s;
+      const schedule = structuredClone(s.schedule.schedule);
+      const row = { ...(schedule[empId] ?? {}) };
+      for (let i = 0; i < length; i++) {
+        const slot = startSlot + i * 15;
+        row[slot] = newJob;
+      }
+      schedule[empId] = row;
+      return {
+        ...s,
+        schedule: { ...s.schedule, schedule },
+        scheduleManuallyEdited: true,
+      };
+    });
   }
 
   function handleReset() {
@@ -266,6 +292,9 @@ function Flow() {
           date={state.extractedDate}
           dayName={state.extractedDay}
           storeHours={state.storeHours}
+          manuallyEdited={state.scheduleManuallyEdited}
+          onEditBlock={handleEditBlock}
+          onRegenerate={handleGenerate}
           onBack={() => goTo('rules')}
         />
       )}
