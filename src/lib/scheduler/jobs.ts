@@ -1,5 +1,5 @@
-import type { Hour, JobId, Slot, SpecialisedRole, StaffingRule, StoreHours } from '../types';
-import { isOpenHour } from './storeHours';
+import type { Hour, JobId, Slot, SpecialisedRole, StaffingRule } from '../types';
+import { timeToMinutes } from '../time';
 
 export interface JobMeta {
   label: string;
@@ -26,17 +26,10 @@ export const JOBS: Record<JobId, JobMeta> = {
   idle:          { label: 'Idle',             short: 'Idle',  colour: '#faf5e6' },
 };
 
-export const ROLE_TO_JOB: Record<Exclude<SpecialisedRole, 'tsm'>, JobId> = {
-  lingerie: 'lingerie',
-  bureau: 'bureau',
-  vm: 'vm',
-  isf: 'isf',
-};
-
 export function specialisedRoleLabel(role: SpecialisedRole | undefined): string {
   if (!role) return '';
   if (role === 'tsm') return 'TSM';
-  return JOBS[ROLE_TO_JOB[role]].label;
+  return JOBS[role].label;
 }
 
 export const GENERAL_JOBS: JobId[] = [
@@ -71,11 +64,6 @@ export function isSingleHead(job: JobId): boolean {
   return SINGLE_HEAD_JOBS.has(job);
 }
 
-export function requiredJobsForHour(hour: Hour, storeHours?: StoreHours): JobId[] {
-  if (storeHours && !isOpenHour(hour, storeHours)) return [];
-  return ['tills', 'hosting'];
-}
-
 export const PRIORITY_ORDER: JobId[] = [
   'tills',
   'hosting',
@@ -103,8 +91,8 @@ export function requiredCountFor(
   let unlimited = false;
   for (const r of rules) {
     if (r.job !== job) continue;
-    const rs = timeStrToMin(r.start);
-    const re = timeStrToMin(r.end);
+    const rs = timeToMinutes(r.start);
+    const re = timeToMinutes(r.end);
     if (rs >= hourEndMin || re <= hourStartMin) continue;
     if (r.count === UNLIMITED) {
       unlimited = true;
@@ -113,11 +101,6 @@ export function requiredCountFor(
     }
   }
   return unlimited ? UNLIMITED : count;
-}
-
-function timeStrToMin(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
 }
 
 export function newRuleId(): string {

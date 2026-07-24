@@ -5,6 +5,7 @@ import type {
   SpecialisedRole,
 } from '../types';
 import { lookupTag } from './tagMap';
+import { timeToMinutes } from '../time';
 
 interface TextItem {
   str: string;
@@ -244,11 +245,6 @@ function parseEmployee(
     department: 'any',
     pdfTags,
   };
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
 }
 
 function normalizeTime(t: string): string {

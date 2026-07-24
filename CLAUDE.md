@@ -73,7 +73,10 @@ Internal IDs vs UI labels (do NOT change IDs — PDF tag map and scheduler depen
 For each hour, in order:
 
 1. **Specialised phase** — `specialisedAssignees` Map persists across hours for continuity. TSM is skipped here (no job). Top-up sort: `specialisedPreferred` → longest shift remaining → name. Tagged people pulled from `onShift` (NOT `pool`), so their breaks don't exclude them.
-2. **Priority loop** over `priorityOrder` — for each rule-active job, fill required count. TSMs excluded from `pool`; if no eligible non-TSM exists, fall back to TSMs on shift with warning "*X filled by TSM (last resort)*". Specialised jobs (`bureau`/`vm`/`isf`/`lingerie`) only emit warnings here; they're already placed.
+2. **Priority loop** over `priorityOrder` — runs as two passes via the `fillJob` closure:
+   - **Pass 1 (minimum-1)** — each finite-count non-specialised job gets 1 placement before anyone gets a 2nd. Prevents starvation when staff are scarce. Runs silent (Pass 2 emits the eventual warning if a job still ends up short).
+   - **Pass 2 (top-up)** — fills finite-count jobs to required, fills unlimited jobs indefinitely.
+   TSMs excluded from `pool`; if no eligible non-TSM exists, fall back to TSMs on shift with warning "*X filled by TSM (last resort)*". Specialised jobs (`bureau`/`vm`/`isf`/`lingerie`) only emit warnings here; they're already placed.
 3. **Leftover phase** — anyone unassigned in `pool` (which excludes TSMs) gets paired against rule-active general jobs by `scoreFor`.
 
 After the main loop:
@@ -106,6 +109,7 @@ Tiebreaks in `orderByLeastRecent`: score desc → fewer total jobs done today as
 - **Specialised roles ignore breaks for placement** but **show breaks in display**.
 - **`maxRoleBlock`** (default 2): excludes a person from a job via `wouldExceedMaxBlock` once their consecutive run hits the cap. Specialised exempt.
 - **TSM reserve** — TSMs are never in `pool`, so they're never placed in normal flow. Only the priority-loop fallback (when no non-TSM is eligible for a job) places them, with a warning.
+- **Minimum 1 per finite-count job** — Pass 1 places 1 person on each finite-count non-specialised job before Pass 2 tops anything up. Prevents a high-priority single-head job from starving lower-priority jobs to 0 when staff are scarce. Unlimited-count jobs (e.g. `isf`, `vm` by default) and specialised jobs (placed in the specialised phase) are exempt — a job with no max can be left at 0 if short-staffed.
 
 ### ScheduleWarningKind
 

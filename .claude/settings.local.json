@@ -21,7 +21,8 @@
       "Bash(node -e \"const p=require\\('./node_modules/pdfjs-dist/package.json'\\); console.log\\(JSON.stringify\\({exports:p.exports, types:p.types, main:p.main, module:p.module}, null, 2\\)\\)\")",
       "Bash(curl -s http://localhost:3456/ -o /dev/null -w \"HTTP %{http_code}\\\\n\")",
       "Bash(curl -s http://localhost:3456/_next/static/media/pdf.worker.min.3ejmziwyty2z1.mjs -o /dev/null -w \"HTTP %{http_code} %{size_download}b\\\\n\")",
-      "Bash(curl -s http://localhost:3789/ -o /dev/null -w \"HTTP %{http_code}\\\\n\")"
+      "Bash(curl -s http://localhost:3789/ -o /dev/null -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(node -e \"const b=require\\('fs'\\).readFileSync\\('Sample Rota.pdf'\\);console.log\\('len',b.length,'first16',[...b.slice\\(0,16\\)].map\\(x=>x.toString\\(16\\)\\)\\);console.log\\('asText',JSON.stringify\\(b.slice\\(0,20\\).toString\\('latin1'\\)\\)\\);\")"
     ]
   }
 }

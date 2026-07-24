@@ -8,7 +8,6 @@ import type {
   ScheduleInput,
   ScheduleResult,
   ScheduleWarning,
-  Slot,
   SpecialisedRole,
   StoreHours,
 } from '../types';
@@ -16,7 +15,6 @@ import {
   GENERAL_JOBS,
   JOBS,
   PRIORITY_ORDER,
-  ROLE_TO_JOB,
   UNLIMITED,
   isSingleHead,
   isTradingJob,
@@ -25,6 +23,7 @@ import {
 } from './jobs';
 import type { StaffingRule } from '../types';
 import { isOpenHour, isOpenSlot } from './storeHours';
+import { timeToMinutes } from '../time';
 
 const SLOT_MINUTES = 15;
 const HISTORY_LEN = 6;
@@ -120,7 +119,7 @@ export function generateSchedule(input: ScheduleInput, storeHours?: StoreHours):
 
     for (const role of ALL_ROLES) {
       if (role === 'tsm') continue;
-      const job = ROLE_TO_JOB[role];
+      const job = role;
       const needed = requiredCountFor(job, hourStart, hourEnd, staffing);
 
       if (needed === 0) {
@@ -160,28 +159,28 @@ export function generateSchedule(input: ScheduleInput, storeHours?: StoreHours):
       pool.filter((e) => canCoverFullHour(e, hour)).map((e) => e.id)
     );
 
+    // Specialised jobs: specialised phase above already placed tagged staff.
+    // Just emit shortfall warnings here.
     for (const job of priorityOrder) {
+      if (!SPECIALISED_JOBS.has(job)) continue;
       const needed = requiredCountFor(job, hourStart, hourEnd, staffing);
       if (needed === 0) continue;
-
-      if (SPECIALISED_JOBS.has(job)) {
-        const currentCount = coverage[hour][job] ?? 0;
-        const remaining = (needed === UNLIMITED ? 0 : needed) - currentCount;
-        if (remaining > 0) {
-          warnList.push({
-            hour,
-            kind: 'understaffed',
-            message: `${job} short by ${remaining} (need more specialised-tagged staff)`,
-          });
-        }
-        continue;
+      const currentCount = coverage[hour][job] ?? 0;
+      const remaining = (needed === UNLIMITED ? 0 : needed) - currentCount;
+      if (remaining > 0) {
+        warnList.push({
+          hour,
+          kind: 'understaffed',
+          message: `${job} short by ${remaining} (need more specialised-tagged staff)`,
+        });
       }
+    }
 
-      const isUnlimited = needed === UNLIMITED;
+    const fillJob = (job: JobId, cap: number, isUnlimited: boolean, silent: boolean = false) => {
       let remaining = isUnlimited
         ? Number.MAX_SAFE_INTEGER
-        : needed - (coverage[hour][job] ?? 0);
-      if (!isUnlimited && remaining <= 0) continue;
+        : cap - (coverage[hour][job] ?? 0);
+      if (!isUnlimited && remaining <= 0) return;
 
       while (remaining > 0) {
         let eligible = pool.filter((e) => !assignedThisHour.has(e.id));
@@ -265,7 +264,7 @@ export function generateSchedule(input: ScheduleInput, storeHours?: StoreHours):
           }
         }
         if (eligible.length === 0) {
-          if (!isUnlimited) {
+          if (!isUnlimited && !silent) {
             warnList.push({
               hour,
               kind: 'understaffed',
@@ -288,6 +287,24 @@ export function generateSchedule(input: ScheduleInput, storeHours?: StoreHours):
         assignmentOrder,
         singleHeadEligible
       );
+    };
+
+    // Pass 1: every finite-count non-specialised job gets at least 1 placement before anyone gets a 2nd.
+    // Prevents a higher-priority job from starving lower-priority jobs to 0 when staff are scarce.
+    for (const job of priorityOrder) {
+      if (SPECIALISED_JOBS.has(job)) continue;
+      const needed = requiredCountFor(job, hourStart, hourEnd, staffing);
+      if (needed <= 0 || needed === UNLIMITED) continue;
+      if ((coverage[hour][job] ?? 0) >= 1) continue;
+      fillJob(job, 1, false, true);
+    }
+
+    // Pass 2: top up finite-count jobs to required, fill unlimited jobs.
+    for (const job of priorityOrder) {
+      if (SPECIALISED_JOBS.has(job)) continue;
+      const needed = requiredCountFor(job, hourStart, hourEnd, staffing);
+      if (needed === 0) continue;
+      fillJob(job, needed, needed === UNLIMITED);
     }
 
     const availableJobs: JobId[] = (trading ? GENERAL_JOBS : SETUP_JOBS).filter((j) => {
@@ -500,18 +517,13 @@ function computeRequiredUntil(
   const ends = staffing
     .filter((r) => r.job === job)
     .map((r) => {
-      const rs = timeStrToMin(r.start);
-      const re = timeStrToMin(r.end);
+      const rs = timeToMinutes(r.start);
+      const re = timeToMinutes(r.end);
       if (rs >= hourEnd || re <= hourStart) return null;
       return Math.min(re, hourEnd);
     })
     .filter((t): t is number => t !== null);
   return ends.length ? Math.max(...ends) : hourEnd;
-}
-
-function timeStrToMin(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
 }
 
 function swapFittingRoomsFromGeneral(
@@ -702,10 +714,3 @@ function isFullyOnBreak(e: Employee, hour: Hour): boolean {
     return bs <= hStart && be >= hEnd;
   });
 }
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-export type { Slot };

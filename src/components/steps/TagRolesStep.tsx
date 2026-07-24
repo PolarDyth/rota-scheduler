@@ -169,7 +169,7 @@ export function TagRolesStep({ employees, onChange, onBack, onContinue }: Props)
   const allSelected = employees.length > 0 && selected.size === employees.length;
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(employees.map((e, i) => e.id + i)));
+    else setSelected(new Set(employees.map((e) => e.id)));
   };
 
   const update = (idx: number, next: Employee) => {
@@ -178,15 +178,15 @@ export function TagRolesStep({ employees, onChange, onBack, onContinue }: Props)
 
   const applyBulkDept = (dept: Department) => {
     onChange(
-      employees.map((e, i) => (selected.has(e.id + i) ? { ...e, department: dept } : e))
+      employees.map((e) => (selected.has(e.id) ? { ...e, department: dept } : e))
     );
     setBulkDept('');
   };
 
   const applyBulkRole = (role: SpecialisedRole | 'General') => {
     onChange(
-      employees.map((e, i) =>
-        selected.has(e.id + i)
+      employees.map((e) =>
+        selected.has(e.id)
           ? { ...e, specialisedRole: role === 'General' ? undefined : role }
           : e
       )
@@ -294,10 +294,10 @@ export function TagRolesStep({ employees, onChange, onBack, onContinue }: Props)
               <TableBody>
                 {employees.map((e, i) => (
                   <TagRolesRow
-                    key={e.id + i}
+                    key={e.id}
                     employee={e}
-                    selected={selected.has(e.id + i)}
-                    onToggleSelect={() => toggle(e.id + i)}
+                    selected={selected.has(e.id)}
+                    onToggleSelect={() => toggle(e.id)}
                     onChange={(next) => update(i, next)}
                   />
                 ))}

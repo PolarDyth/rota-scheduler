@@ -46,11 +46,6 @@ export interface Employee {
   pdfTags: string[];
 }
 
-export interface DeliveryConfig {
-  enabled: boolean;
-  headcount: number;
-}
-
 export interface StaffingRule {
   id: string;
   job: JobId;

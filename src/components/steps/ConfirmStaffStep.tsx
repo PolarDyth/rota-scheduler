@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { StepFooter } from '@/components/StepFooter';
 import { cn } from '@/lib/utils';
+import { timeToMinutes } from '@/lib/time';
 
 interface Props {
   employees: Employee[];
@@ -40,24 +41,19 @@ interface RowIssue {
   message: string;
 }
 
-function timeToMin(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
 function rowIssues(emp: Employee): RowIssue[] {
   const issues: RowIssue[] = [];
   if (!emp.name.trim()) {
     issues.push({ kind: 'empty-name', message: 'No name entered' });
   }
-  if (emp.shiftEnd && emp.shiftStart && timeToMin(emp.shiftEnd) <= timeToMin(emp.shiftStart)) {
+  if (emp.shiftEnd && emp.shiftStart && timeToMinutes(emp.shiftEnd) <= timeToMinutes(emp.shiftStart)) {
     issues.push({ kind: 'no-end', message: 'Shift end must be after start' });
   }
   for (const b of emp.breaks) {
-    const bs = timeToMin(b.start);
-    const be = timeToMin(b.end);
-    const ss = timeToMin(emp.shiftStart);
-    const se = timeToMin(emp.shiftEnd);
+    const bs = timeToMinutes(b.start);
+    const be = timeToMinutes(b.end);
+    const ss = timeToMinutes(emp.shiftStart);
+    const se = timeToMinutes(emp.shiftEnd);
     if (bs < ss || be > se) {
       issues.push({ kind: 'break-outside', message: 'Break outside shift' });
       break;
@@ -221,7 +217,7 @@ export function ConfirmStaffStep({
   const allSelected = employees.length > 0 && selected.size === employees.length;
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(employees.map((e, i) => e.id + i)));
+    else setSelected(new Set(employees.map((e) => e.id)));
   };
 
   const update = (idx: number, next: Employee) => {
@@ -229,7 +225,7 @@ export function ConfirmStaffStep({
   };
 
   const deleteSelected = () => {
-    onChange(employees.filter((e, i) => !selected.has(e.id + i)));
+    onChange(employees.filter((e) => !selected.has(e.id)));
     setSelected(new Set());
   };
 
@@ -309,10 +305,10 @@ export function ConfirmStaffStep({
               <TableBody>
                 {employees.map((e, i) => (
                   <ConfirmStaffRow
-                    key={e.id + i}
+                    key={e.id}
                     employee={e}
-                    selected={selected.has(e.id + i)}
-                    onToggleSelect={() => toggle(e.id + i)}
+                    selected={selected.has(e.id)}
+                    onToggleSelect={() => toggle(e.id)}
                     onChange={(next) => update(i, next)}
                   />
                 ))}

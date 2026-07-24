@@ -140,7 +140,6 @@ function Flow() {
   function handleExtracted(rota: ExtractedRota) {
     const storeHours = storeHoursForDay(rota.dayName);
     setState({
-      ...INITIAL,
       step: 'confirm',
       extractedDate: rota.date,
       extractedDay: rota.dayName,
@@ -149,6 +148,7 @@ function Flow() {
       staffing: defaultStaffingRules(),
       priorityOrder: [...PRIORITY_ORDER],
       maxRoleBlock: 2,
+      schedule: null,
       storeHours,
       completedSteps: ['upload'],
     });
