@@ -15,27 +15,33 @@ import {
   GENERAL_JOBS,
   JOBS,
   PRIORITY_ORDER,
+  SPECIALISED_JOBS,
   UNLIMITED,
   isSingleHead,
   requiredCountFor,
 } from './jobs';
-import type { StaffingRule } from '../types';
 import { isOpenHour } from './storeHours';
 import { timeToMinutes } from '../time';
 import { expandToSlots, type BreakCover } from './expandToSlotsShared';
+import {
+  canCoverFullHour,
+  isFullyOnBreak,
+  isOnShiftAny,
+  preferNonReserve,
+} from './employeeQueries';
+import {
+  HISTORY_LEN,
+  orderByLeastRecent,
+  scoreFor,
+  wouldExceedMaxBlock,
+} from './assignmentHistory';
+import { tryShiftBreakForCoverage } from './breakShift';
+import { swapFittingRoomsFromGeneral } from './fittingRoomSwap';
+import { computeRequiredUntil } from './staffingQuery';
+import { resolveBreakCovers, type BreakGap } from './breakCoverResolve';
 
-const HISTORY_LEN = 6;
 const SETUP_JOBS: JobId[] = ['standards', 'repro'];
-const SPECIALISED_JOBS = new Set<JobId>(['bureau', 'vm', 'isf', 'lingerie']);
 const ALL_ROLES: SpecialisedRole[] = ['lingerie', 'bureau', 'vm', 'isf'];
-
-interface BreakGap {
-  empId: string;
-  hour: Hour;
-  job: JobId;
-  slotStart: number;
-  slotEnd: number;
-}
 
 export function generateSchedule(input: ScheduleInput, storeHours?: StoreHours): ScheduleResult {
   // Clone so break-shift mutations don't leak back into the caller's employees
@@ -343,64 +349,14 @@ export function generateSchedule(input: ScheduleInput, storeHours?: StoreHours):
     }
   }
 
-  for (const gap of breakGaps) {
-    const primary = employees.find((e) => e.id === gap.empId);
-    if (!primary) continue;
-    const onShift = employees.filter((e) => isOnShiftAny(e, gap.hour));
-    const candidates = preferNonReserve(
-      onShift.filter((c) => {
-        if (c.id === primary.id) return false;
-        if (c.breaks.some((bb) => {
-          const bbs = timeToMinutes(bb.start);
-          const bbe = timeToMinutes(bb.end);
-          return bbs < gap.slotEnd && bbe > gap.slotStart;
-        })) return false;
-        const cs = timeToMinutes(c.shiftStart);
-        const ce = timeToMinutes(c.shiftEnd);
-        if (cs >= gap.slotEnd || ce <= gap.slotStart) return false;
-        const cJob = hourlyAssignments[gap.hour][c.id];
-        if (cJob && (isSingleHead(cJob) || SPECIALISED_JOBS.has(cJob))) return false;
-        return true;
-      })
-    );
-
-    if (candidates.length === 0) {
-      warnList.push({
-        hour: gap.hour,
-        kind: 'understaffed',
-        message: `${JOBS[gap.job].label} has a break gap (${primary.name} on break, no cover available)`,
-        employeeIds: [primary.id],
-      });
-      continue;
-    }
-
-    const sorted = [...candidates].sort((a, b) => {
-      const aJob = hourlyAssignments[gap.hour][a.id];
-      const bJob = hourlyAssignments[gap.hour][b.id];
-      const aGeneral = aJob && GENERAL_JOBS.includes(aJob) ? 0 : 1;
-      const bGeneral = bJob && GENERAL_JOBS.includes(bJob) ? 0 : 1;
-      if (aGeneral !== bGeneral) return aGeneral - bGeneral;
-      const aScore = scoreFor(a.id, gap.job, history);
-      const bScore = scoreFor(b.id, gap.job, history);
-      return bScore - aScore;
-    });
-    const cover = sorted[0];
-    breakCovers.push({
-      empId: cover.id,
-      primaryId: primary.id,
-      jobId: gap.job,
-      slotStart: gap.slotStart,
-      slotEnd: gap.slotEnd,
-    });
-    const h = history.get(cover.id) ?? [];
-    history.set(cover.id, [gap.job, ...h].slice(0, HISTORY_LEN));
-    warnList.push({
-      hour: gap.hour,
-      kind: 'breakCovered',
-      message: `${cover.name} covering ${JOBS[gap.job].label} while ${primary.name} on break`,
-      employeeIds: [cover.id, primary.id],
-    });
-  }
+  resolveBreakCovers({
+    employees,
+    breakGaps,
+    hourlyAssignments,
+    history,
+    warnList,
+    breakCovers,
+  });
 
   const schedule: Schedule = expandToSlots(
     employees,
@@ -412,211 +368,4 @@ export function generateSchedule(input: ScheduleInput, storeHours?: StoreHours):
     breakCovers
   );
   return { schedule, warnings: warnList, coverage };
-}
-
-function computeRequiredUntil(
-  job: JobId,
-  hourStart: number,
-  hourEnd: number,
-  staffing: StaffingRule[]
-): number {
-  const ends = staffing
-    .filter((r) => r.job === job)
-    .map((r) => {
-      const rs = timeToMinutes(r.start);
-      const re = timeToMinutes(r.end);
-      if (rs >= hourEnd || re <= hourStart) return null;
-      return Math.min(re, hourEnd);
-    })
-    .filter((t): t is number => t !== null);
-  return ends.length ? Math.max(...ends) : hourEnd;
-}
-
-function swapFittingRoomsFromGeneral(
-  job: JobId,
-  hour: Hour,
-  employees: Employee[],
-  assignedThisHour: Map<string, JobId>,
-  hourlyAssignments: Record<Hour, Record<string, JobId>>,
-  assignmentOrder: Record<Hour, Partial<Record<JobId, string[]>>>,
-  singleHeadEligible: Set<string>
-) {
-  if (job !== 'fittingMens' && job !== 'fittingWomens') return;
-  const requiredDept: Department = job === 'fittingMens' ? 'menswear' : 'womenswear';
-
-  const placedIds = assignmentOrder[hour][job] ?? [];
-  for (const placedId of placedIds) {
-    const placed = employees.find((e) => e.id === placedId);
-    if (!placed) continue;
-    if (placed.department === requiredDept || placed.department === 'any') continue;
-
-    const swapTarget = employees.find((e) => {
-      if (e.department !== requiredDept) return false;
-      const currentJob = assignedThisHour.get(e.id);
-      if (!currentJob || !GENERAL_JOBS.includes(currentJob)) return false;
-      if (!singleHeadEligible.has(e.id)) return false;
-      return true;
-    });
-
-    if (swapTarget) {
-      const oldJob = assignedThisHour.get(swapTarget.id)!;
-      assignedThisHour.set(swapTarget.id, job);
-      assignedThisHour.set(placed.id, oldJob);
-      hourlyAssignments[hour][swapTarget.id] = job;
-      hourlyAssignments[hour][placed.id] = oldJob;
-
-      const fittingList = assignmentOrder[hour][job] ?? [];
-      const idx = fittingList.indexOf(placedId);
-      if (idx >= 0) fittingList[idx] = swapTarget.id;
-      assignmentOrder[hour][job] = fittingList;
-
-      const oldJobList = assignmentOrder[hour][oldJob] ?? [];
-      const oldIdx = oldJobList.indexOf(swapTarget.id);
-      if (oldIdx >= 0) oldJobList[oldIdx] = placed.id;
-      assignmentOrder[hour][oldJob] = oldJobList;
-    }
-  }
-}
-
-function canCoverFullHour(e: Employee, hour: Hour): boolean {
-  if (!e.shiftStart || !e.shiftEnd) return false;
-  const hStart = hour * 60;
-  const hEnd = hStart + 60;
-  const s = timeToMinutes(e.shiftStart);
-  const en = timeToMinutes(e.shiftEnd);
-  if (s > hStart || en < hEnd) return false;
-  return !e.breaks.some((b) => {
-    const bs = timeToMinutes(b.start);
-    const be = timeToMinutes(b.end);
-    return bs < hEnd && be > hStart;
-  });
-}
-
-function preferNonReserve(eligible: Employee[]): Employee[] {
-  const non = eligible.filter((e) => e.specialisedRole !== 'tsm');
-  return non.length > 0 ? non : eligible;
-}
-
-function tryShiftBreakForCoverage(
-  e: Employee,
-  hour: Hour,
-  lockedHours: Set<Hour>
-): { newBreaks: BreakPeriod[]; minutes: number } | null {
-  const hStart = hour * 60;
-  const hEnd = hStart + 60;
-  const shiftStart = timeToMinutes(e.shiftStart);
-  const shiftEnd = timeToMinutes(e.shiftEnd);
-
-  const overlapping = e.breaks.filter((b) => {
-    const bs = timeToMinutes(b.start);
-    const be = timeToMinutes(b.end);
-    return bs < hEnd && be > hStart;
-  });
-
-  if (overlapping.length !== 1) return null;
-  const target = overlapping[0];
-  const otherBreaks = e.breaks.filter((b) => b !== target);
-
-  const candidates = [-15, 15, -30, 30];
-  for (const shift of candidates) {
-    const newStart = timeToMinutes(target.start) + shift;
-    const newEnd = timeToMinutes(target.end) + shift;
-
-    if (newStart < hEnd && newEnd > hStart) continue;
-    if (newStart < shiftStart || newEnd > shiftEnd) continue;
-
-    const conflictsWithLocked = Array.from(lockedHours).some((lh) => {
-      const lhStart = lh * 60;
-      const lhEnd = lhStart + 60;
-      return newStart < lhEnd && newEnd > lhStart;
-    });
-    if (conflictsWithLocked) continue;
-
-    const conflict = otherBreaks.some((b) => {
-      const bs = timeToMinutes(b.start);
-      const be = timeToMinutes(b.end);
-      return newStart < be && bs < newEnd;
-    });
-    if (conflict) continue;
-
-    const newBreak: BreakPeriod = {
-      start: minToTime(newStart),
-      end: minToTime(newEnd),
-    };
-    const newBreaks = [...otherBreaks, newBreak].sort(
-      (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start)
-    );
-    return { newBreaks, minutes: shift };
-  }
-  return null;
-}
-
-function minToTime(min: number): string {
-  const clamped = Math.max(0, Math.min(24 * 60, min));
-  const h = Math.floor(clamped / 60);
-  const m = clamped % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-function orderByLeastRecent(
-  candidates: Employee[],
-  job: JobId,
-  history: Map<string, JobId[]>,
-  hour: Hour
-): Employee[] {
-  const indexed = candidates.map((emp, originalIdx) => ({ emp, originalIdx }));
-  indexed.sort((a, b) => {
-    const sa = scoreFor(a.emp.id, job, history);
-    const sb = scoreFor(b.emp.id, job, history);
-    if (sb !== sa) return sb - sa;
-    const ta = (history.get(a.emp.id) ?? []).length;
-    const tb = (history.get(b.emp.id) ?? []).length;
-    if (ta !== tb) return ta - tb;
-    const ra = (a.originalIdx + hour) % candidates.length;
-    const rb = (b.originalIdx + hour) % candidates.length;
-    return ra - rb;
-  });
-  return indexed.map((x) => x.emp);
-}
-
-function scoreFor(empId: string, job: JobId, history: Map<string, JobId[]>): number {
-  const h = history.get(empId) ?? [];
-  if (h.length === 0) return 1000;
-  if (h[0] === job) return 2000;
-  const idx = h.indexOf(job);
-  return idx === -1 ? 1000 : h.length - idx;
-}
-
-function wouldExceedMaxBlock(
-  empId: string,
-  job: JobId,
-  history: Map<string, JobId[]>,
-  maxBlock: number
-): boolean {
-  if (maxBlock <= 0) return false;
-  const h = history.get(empId) ?? [];
-  if (h.length === 0 || h[0] !== job) return false;
-  let count = 1;
-  for (let i = 1; i < h.length; i++) {
-    if (h[i] === job) count++;
-    else break;
-  }
-  return count + 1 > maxBlock;
-}
-
-function isOnShiftAny(e: Employee, hour: Hour): boolean {
-  if (!e.shiftStart || !e.shiftEnd) return false;
-  const hStart = hour * 60;
-  const hEnd = hStart + 60;
-  return timeToMinutes(e.shiftStart) < hEnd && timeToMinutes(e.shiftEnd) > hStart;
-}
-
-function isFullyOnBreak(e: Employee, hour: Hour): boolean {
-  const hStart = hour * 60;
-  const hEnd = hStart + 60;
-  return e.breaks.some((b) => {
-    const bs = timeToMinutes(b.start);
-    const be = timeToMinutes(b.end);
-    return bs <= hStart && be >= hEnd;
-  });
 }

@@ -64,6 +64,8 @@ export function isSingleHead(job: JobId): boolean {
   return SINGLE_HEAD_JOBS.has(job);
 }
 
+export const SPECIALISED_JOBS = new Set<JobId>(['bureau', 'vm', 'isf', 'lingerie']);
+
 export const PRIORITY_ORDER: JobId[] = [
   'tills',
   'hosting',
