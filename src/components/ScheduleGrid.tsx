@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Sun, Check, Pencil } from 'lucide-react';
 import { JOBS, specialisedRoleLabel, formatSlot } from '@/lib/scheduler/jobs';
 import type { Employee, Hour, JobId, ScheduleResult, Slot, StoreHours } from '@/lib/types';
 import { isOpenSlot } from '@/lib/scheduler/storeHours';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { BlockRef } from '@/lib/scheduler/swapBlock';
 
 interface Props {
   employees: Employee[];
@@ -14,6 +15,8 @@ interface Props {
   result: ScheduleResult;
   storeHours?: StoreHours;
   onEditBlock?: (empId: string, startSlot: Slot, length: number, newJob: JobId) => void;
+  onSwapBlocks?: (source: BlockRef, target: BlockRef) => void;
+  onMoveBreak?: (empId: string, oldStart: Slot, newStart: Slot) => void;
 }
 
 const SLOT_WIDTH = 18;
@@ -31,6 +34,11 @@ interface EditTarget {
   length: number;
   job: JobId;
 }
+
+type DragSource =
+  | ({ kind: 'work' } & BlockRef)
+  | { kind: 'break'; empId: string; startSlot: Slot }
+  | null;
 
 const PICKER_GROUPS: { label: string; jobs: JobId[] }[] = [
   { label: 'Trading', jobs: ['tills', 'hosting', 'clickCollect', 'fittingMens', 'fittingWomens'] },
@@ -68,6 +76,14 @@ function getRuns(slots: Slot[], rowSchedule: Partial<Record<Slot, JobId>>): Run[
   return runs;
 }
 
+function isWorkJob(job: JobId): boolean {
+  return job !== 'break' && job !== 'off';
+}
+
+function slotHour(slot: Slot): Hour {
+  return Math.floor(slot / 60);
+}
+
 export function ScheduleGrid({
   employees,
   hours,
@@ -75,9 +91,13 @@ export function ScheduleGrid({
   result,
   storeHours,
   onEditBlock,
+  onSwapBlocks,
+  onMoveBreak,
 }: Props) {
   const totalWidth = NAME_WIDTH + slots.length * SLOT_WIDTH;
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  const dragSource = useRef<DragSource>(null);
+  const [dropTarget, setDropTarget] = useState<{ empId: string; slot: Slot; kind: 'work' | 'break' } | null>(null);
 
   function pick(job: JobId) {
     if (editing && onEditBlock) {
@@ -85,6 +105,91 @@ export function ScheduleGrid({
     }
     setEditing(null);
   }
+
+  function canDropHere(src: DragSource, targetEmpId: string, targetSlot: Slot, targetJob: JobId): boolean {
+    if (!src) return false;
+    if (!isWorkJob(targetJob)) return false;
+    if (src.kind === 'work') {
+      if (src.empId === targetEmpId && src.startSlot === targetSlot) return false;
+      return slotHour(src.startSlot) === slotHour(targetSlot);
+    }
+    // break source: same row only
+    return src.empId === targetEmpId;
+  }
+
+  function handleDragStart(e: React.DragEvent, empId: string, run: Run) {
+    if (run.job === 'off') {
+      e.preventDefault();
+      return;
+    }
+    if (run.job === 'break') {
+      if (!onMoveBreak) {
+        e.preventDefault();
+        return;
+      }
+      dragSource.current = { kind: 'break', empId, startSlot: run.slot };
+    } else {
+      if (!onSwapBlocks) {
+        e.preventDefault();
+        return;
+      }
+      dragSource.current = {
+        kind: 'work',
+        empId,
+        startSlot: run.slot,
+        length: run.length,
+        job: run.job,
+      };
+    }
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', `${empId}:${run.slot}:${run.job}`);
+    } catch {
+      // some browsers restrict dataTransfer
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent, empId: string, run: Run) {
+    const src = dragSource.current;
+    if (!src) return;
+    if (!canDropHere(src, empId, run.slot, run.job)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const kind: 'work' | 'break' = src.kind;
+    const key = `${empId}:${run.slot}:${kind}`;
+    setDropTarget((prev) => (prev && `${prev.empId}:${prev.slot}:${prev.kind}` === key ? prev : { empId, slot: run.slot, kind }));
+  }
+
+  function handleDragLeave() {
+    setDropTarget(null);
+  }
+
+  function handleDrop(e: React.DragEvent, empId: string, run: Run) {
+    const src = dragSource.current;
+    e.preventDefault();
+    dragSource.current = null;
+    const wasTarget = dropTarget;
+    setDropTarget(null);
+    if (!src) return;
+    if (!canDropHere(src, empId, run.slot, run.job)) return;
+    if (src.kind === 'work' && onSwapBlocks) {
+      onSwapBlocks(src, {
+        empId,
+        startSlot: run.slot,
+        length: run.length,
+        job: run.job,
+      });
+    } else if (src.kind === 'break' && onMoveBreak && wasTarget) {
+      onMoveBreak(src.empId, src.startSlot, run.slot);
+    }
+  }
+
+  function handleDragEnd() {
+    dragSource.current = null;
+    setDropTarget(null);
+  }
+
+  const dndEnabled = !!onSwapBlocks || !!onMoveBreak;
 
   return (
     <div className="overflow-x-auto">
@@ -152,11 +257,17 @@ export function ScheduleGrid({
                   const isEditing =
                     editing?.empId === e.id && editing?.slot === run.slot && editing?.length === run.length;
                   const timeLabel = `${formatSlot(run.slot)}–${formatSlot(run.slot + run.length * 15)}`;
+
+                  const draggable =
+                    dndEnabled && run.job !== 'off' &&
+                    ((run.job === 'break' && !!onMoveBreak) || (run.job !== 'break' && !!onSwapBlocks));
+                  const isDropTarget =
+                    dropTarget?.empId === e.id && dropTarget?.slot === run.slot;
                   return (
                     <td
                       key={run.slot}
                       colSpan={run.length}
-                      className={editable ? 'group' : undefined}
+                      className={editable || draggable ? 'group' : undefined}
                       title={`${timeLabel} — ${meta.label}${slotOpen ? '' : ' (closed)'}`}
                       style={{
                         background: meta.colour,
@@ -166,9 +277,23 @@ export function ScheduleGrid({
                         opacity: run.job === 'off' ? 0.3 : 1,
                         textAlign: 'center',
                         verticalAlign: 'middle',
-                        position: editable ? 'relative' : undefined,
-                        cursor: editable ? 'pointer' : run.job === 'off' ? 'not-allowed' : 'default',
+                        position: editable || draggable ? 'relative' : undefined,
+                        cursor: draggable
+                          ? 'grab'
+                          : editable
+                            ? 'pointer'
+                            : run.job === 'off'
+                              ? 'not-allowed'
+                              : 'default',
+                        outline: isDropTarget ? '2px solid var(--accent)' : undefined,
+                        outlineOffset: isDropTarget ? -2 : undefined,
                       }}
+                      draggable={draggable || undefined}
+                      onDragStart={(ev) => handleDragStart(ev, e.id, run)}
+                      onDragOver={(ev) => handleDragOver(ev, e.id, run)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(ev) => handleDrop(ev, e.id, run)}
+                      onDragEnd={handleDragEnd}
                     >
                       {showText && (
                         <span className="block truncate px-1 text-[10px] font-semibold leading-none text-foreground pointer-events-none">
@@ -192,6 +317,7 @@ export function ScheduleGrid({
                               render={
                                 <button
                                   type="button"
+                                  draggable={false}
                                   className="no-print absolute inset-0 h-full w-full bg-transparent transition-all group-hover:bg-foreground/5 group-hover:ring-2 group-hover:ring-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                                   aria-label={`${e.name} ${timeLabel} — ${meta.label} — click to change`}
                                 />

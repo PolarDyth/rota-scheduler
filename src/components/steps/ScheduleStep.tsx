@@ -24,6 +24,7 @@ import { Legend } from '@/components/Legend';
 import { PrintHeader } from '@/components/PrintHeader';
 import { HelpBubble } from '@/components/HelpBubble';
 import { InfoAlert } from '@/components/InfoAlert';
+import type { BlockRef } from '@/lib/scheduler/swapBlock';
 
 interface Props {
   employees: Employee[];
@@ -35,6 +36,8 @@ interface Props {
   storeHours?: StoreHours;
   manuallyEdited?: boolean;
   onEditBlock?: (empId: string, startSlot: Slot, length: number, newJob: JobId) => void;
+  onSwapBlocks?: (source: BlockRef, target: BlockRef) => void;
+  onMoveBreak?: (empId: string, oldStart: Slot, newStart: Slot) => void;
   onRegenerate?: () => void;
   onBack: () => void;
 }
@@ -67,6 +70,8 @@ export function ScheduleStep({
   storeHours,
   manuallyEdited,
   onEditBlock,
+  onSwapBlocks,
+  onMoveBreak,
   onRegenerate,
   onBack,
 }: Props) {
@@ -165,8 +170,10 @@ export function ScheduleStep({
             Schedule
             {onEditBlock && (
               <HelpBubble label="Editing the schedule">
-                Click any block to change what someone is doing for that hour. Job and break
-                blocks are editable; off-shift time is locked. Changes save automatically.
+                Click any block to change what someone is doing for that hour. Drag a work
+                block onto another work block in the same hour to swap their jobs. Drag a
+                break block within the same row to move it. Job and break blocks are
+                editable; off-shift time is locked. Changes save automatically.
               </HelpBubble>
             )}
           </CardTitle>
@@ -182,6 +189,8 @@ export function ScheduleStep({
             result={result}
             storeHours={storeHours}
             onEditBlock={onEditBlock}
+            onSwapBlocks={onSwapBlocks}
+            onMoveBreak={onMoveBreak}
           />
         </CardContent>
       </Card>
