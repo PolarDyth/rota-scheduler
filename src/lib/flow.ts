@@ -8,10 +8,10 @@ export interface StepMeta {
 
 export const STEPS: StepMeta[] = [
   { id: 'upload', label: 'Upload rota', short: 'Upload' },
-  { id: 'confirm', label: 'Check staff & shifts', short: 'Staff' },
-  { id: 'tag', label: 'Tag roles & departments', short: 'Roles' },
+  { id: 'confirm', label: 'Review staff & shifts', short: 'Staff' },
+  { id: 'tag', label: 'Assign roles & departments', short: 'Roles' },
   { id: 'rules', label: 'Set staffing rules', short: 'Rules' },
-  { id: 'schedule', label: 'Your schedule', short: 'Schedule' },
+  { id: 'schedule', label: 'Schedule', short: 'Schedule' },
 ];
 
 export const STEP_ORDER: Step[] = STEPS.map((s) => s.id);

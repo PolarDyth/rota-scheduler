@@ -98,13 +98,13 @@ export function LibraryDialog({
         <DialogHeader>
           <DialogTitle>Open a saved rota</DialogTitle>
           <DialogDescription>
-            Saved rotas live in this browser only. Use Export to move one to another PC.
+            Saved rotas are stored in this browser only. Use Export to transfer one to another machine.
           </DialogDescription>
         </DialogHeader>
 
         {entries.length === 0 ? (
           <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No saved rotas yet. Click <span className="font-semibold">Save</span> in the header to add your first.
+            No saved rotas. Select <span className="font-semibold">Save</span> in the header to create one.
           </div>
         ) : (
           <>

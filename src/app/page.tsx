@@ -374,7 +374,7 @@ function Flow() {
     showFeedback({
       tone: 'success',
       title: `${sourceLabel} loaded`,
-      message: 'You can keep editing — changes save automatically.',
+      message: 'Editing remains available — changes save automatically.',
     });
   }
 
@@ -398,13 +398,13 @@ function Flow() {
       showFeedback({
         tone: 'success',
         title: 'Saved to library',
-        message: `"${name}" is now in your saved rotas on this browser.`,
+        message: `"${name}" has been added to this browser's saved rotas.`,
       });
     } else {
       showFeedback({
         tone: 'error',
-        title: "Couldn't save",
-        message: 'Browser storage is full. Try deleting older saved rotas.',
+        title: 'Save failed',
+        message: 'Browser storage is full. Remove older saved rotas and try again.',
       });
     }
   }
@@ -491,7 +491,7 @@ function Flow() {
     showFeedback({
       tone: 'success',
       title: 'Exported',
-      message: `Saved "${a.download}" to your downloads.`,
+      message: `"${a.download}" has been saved to Downloads.`,
     });
   }
 
@@ -551,9 +551,9 @@ function Flow() {
       )}
 
       {restoreFailed && (
-        <InfoAlert tone="warning" title="We couldn&apos;t restore your last session">
-          Your previously uploaded rota wasn&apos;t readable, so we&apos;ve started fresh.
-          Please re-upload the Schedule Editor PDF to continue.
+        <InfoAlert tone="warning" title="Session could not be restored">
+          The previously uploaded rota was not readable, so a new session has been started.
+          Re-upload the Schedule Editor PDF to continue.
         </InfoAlert>
       )}
 
@@ -613,7 +613,7 @@ function Flow() {
       {currentStep === 'schedule' && !state.schedule && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            No schedule generated. Go back to staffing rules and click Generate.
+            No schedule generated. Return to staffing rules and select Generate.
           </p>
           <Button type="button" variant="outline" onClick={() => goTo('rules')}>
             Back: Staffing rules
@@ -649,10 +649,10 @@ function Flow() {
             <DialogTitle>Replace current draft?</DialogTitle>
             <DialogDescription>
               {pendingReplace?.kind === 'load' && (
-                <>Loading &ldquo;{pendingReplace.name}&rdquo; will overwrite the rota you&apos;re currently editing. This cannot be undone.</>
+                <>Loading &ldquo;{pendingReplace.name}&rdquo; will overwrite the rota currently being edited. This cannot be undone.</>
               )}
               {pendingReplace?.kind === 'import' && (
-                <>Importing will overwrite the rota you&apos;re currently editing. This cannot be undone.</>
+                <>Importing will overwrite the rota currently being edited. This cannot be undone.</>
               )}
             </DialogDescription>
           </DialogHeader>

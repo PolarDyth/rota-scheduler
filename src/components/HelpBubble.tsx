@@ -21,7 +21,7 @@ export function HelpBubble({ label, children, className, size = 'md' }: Props) {
             type="button"
             aria-label={label ? `Help: ${label}` : 'More information'}
             className={cn(
-              'inline-flex items-center justify-center text-muted-foreground transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-none',
+              'inline-flex items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
               className
             )}
           />

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Info, Star } from 'lucide-react';
 import { HelpBubble } from '@/components/HelpBubble';
 import type { Department, Employee, SpecialisedRole } from '@/lib/types';
 import {
@@ -30,12 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { StepFooter } from '@/components/StepFooter';
 import { cn } from '@/lib/utils';
 
@@ -47,12 +40,12 @@ interface Props {
 }
 
 const ROLE_OPTIONS: { value: SpecialisedRole | 'General'; label: string; description: string }[] = [
-  { value: 'General', label: 'No specialist role', description: 'General team member who covers any role.' },
+  { value: 'General', label: 'No specialist role', description: 'General team member; covers any role.' },
   { value: 'lingerie', label: 'Bra Fit', description: 'Lingerie fitting specialist.' },
   { value: 'bureau', label: 'Bureau', description: 'Bureau / travel money desk.' },
   { value: 'vm', label: 'Visual Merchandising', description: 'Displays, windows, and floor presentation.' },
   { value: 'isf', label: 'Stock Controller', description: 'Stock profiling.' },
-  { value: 'tsm', label: 'TSM (Team Support Manager)', description: 'Reserved. Only placed on a role when no one else can cover it.' },
+  { value: 'tsm', label: 'TSM (Team Support Manager)', description: 'Reserved. Placed on a role only when no other cover is available.' },
 ];
 
 const DEPARTMENTS: { value: Department; label: string }[] = [
@@ -197,53 +190,35 @@ export function TagRolesStep({ employees, onChange, onBack, onContinue }: Props)
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-tight">Tag roles &amp; departments</h2>
+        <h2 className="flex items-center gap-1.5 text-xl font-semibold tracking-tight">
+          Assign roles &amp; departments
+          <HelpBubble label="What are specialist roles?">
+            <p className="mb-2">
+              Specialist roles are specific jobs that require training. The scheduler assigns
+              them to tagged staff first.
+            </p>
+            <ul className="space-y-1">
+              {ROLE_OPTIONS.filter((r) => r.value !== 'General').map((role) => (
+                <li key={role.value}>
+                  <span className="font-medium text-foreground">{role.label}:</span>{' '}
+                  {role.description}
+                </li>
+              ))}
+            </ul>
+          </HelpBubble>
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Pick which staff are doing specialist jobs today, and which department each person
-          works in. This decides who can cover fitting rooms and which specialist roles get
-          filled.
+          Indicate which staff are assigned to specialist jobs today, and which department
+          each person works in. This determines who can cover fitting rooms and which
+          specialist roles are filled.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Info className="size-4 text-accent" aria-hidden />
-                Not sure what these mean?
-              </CardTitle>
-              <CardDescription>
-                Specialist roles are specific jobs that need training. Tap to expand for a
-                short description of each.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Accordion multiple={false}>
-            {ROLE_OPTIONS.filter((r) => r.value !== 'General').map((role) => (
-              <AccordionItem key={role.value} value={role.value}>
-                <AccordionTrigger className="text-sm">
-                  <span className="flex items-center gap-2">
-                    <Star className="size-3.5 text-accent" aria-hidden />
-                    {role.label}
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground">
-                  {role.description}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle className="text-base">Staff</CardTitle>
           <CardDescription>
-            {employees.length} {employees.length === 1 ? 'person' : 'people'} to tag.
+            {employees.length} {employees.length === 1 ? 'person' : 'people'} to assign.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -263,18 +238,18 @@ export function TagRolesStep({ employees, onChange, onBack, onContinue }: Props)
                     <span className="inline-flex items-center gap-1">
                       Specialist role
                       <HelpBubble label="Specialist role" size="sm">
-                        A trained role that only this person can do (Bra Fit, Bureau, Visual
-                        Merchandising, or Stock Controller). The scheduler always assigns
+                        A trained role that only this person can perform (Bra Fit, Bureau,
+                        Visual Merchandising, or Stock Controller). The scheduler assigns
                         specialist roles to tagged staff first.
                       </HelpBubble>
                     </span>
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
-                      Preferred?
-                      <HelpBubble label="Preferred?" size="sm">
+                      Preferred
+                      <HelpBubble label="Preferred" size="sm">
                         Marks this person as the first choice for their specialist role
-                        across the day. Useful when several people share a tag but one is
+                        across the day. Use this when several people share a tag but one is
                         more experienced.
                       </HelpBubble>
                     </span>
@@ -283,8 +258,8 @@ export function TagRolesStep({ employees, onChange, onBack, onContinue }: Props)
                     <span className="inline-flex items-center gap-1">
                       Department
                       <HelpBubble label="Department" size="sm">
-                        Used to match people to the right fitting room (e.g. menswear staff
-                        cover the mens fitting room). &quot;Any&quot; means they can cover
+                        Used to match staff to the correct fitting room (e.g. menswear staff
+                        cover the mens fitting room). &quot;Any&quot; indicates they can cover
                         either.
                       </HelpBubble>
                     </span>

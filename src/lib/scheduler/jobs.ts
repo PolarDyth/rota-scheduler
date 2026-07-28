@@ -20,8 +20,8 @@ export const JOBS: Record<JobId, JobMeta> = {
   lingerie:      { label: 'Bra Fit',          short: 'Bra',   colour: '#ddd6fe', specialised: true },
   bureau:        { label: 'Bureau',           short: 'Bur',   colour: '#fde68a', specialised: true },
   vm:            { label: 'Visual Merchandising', short: 'VM', colour: '#a7f3d0', specialised: true },
-  isf:           { label: 'Stock Controller', short: 'Stock', colour: '#fecaca', specialised: true },
-  break:         { label: 'Break',            short: 'BRK',   colour: '#d4d4d8' },
+  isf:           { label: 'Stock Controller', short: 'Stock', colour: '#fca5a5', specialised: true },
+  break:         { label: 'Break',            short: 'BRK',   colour: '#9ca3af' },
   off:           { label: '—',                short: '',      colour: '#ffffff' },
   idle:          { label: 'Idle',             short: 'Idle',  colour: '#faf5e6' },
 };

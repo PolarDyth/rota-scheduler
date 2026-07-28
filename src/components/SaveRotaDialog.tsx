@@ -52,7 +52,7 @@ export function SaveRotaDialog({ open, onOpenChange, defaultDate, onSave }: Prop
         <DialogHeader>
           <DialogTitle>Save current rota</DialogTitle>
           <DialogDescription>
-            Saves a snapshot of the current rota to this browser. Use Export to move it to another PC.
+            Saves a snapshot of the current rota to this browser. Use Export to transfer it to another machine.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">

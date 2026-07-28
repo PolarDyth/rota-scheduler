@@ -60,6 +60,9 @@ const KIND_ORDER: ScheduleWarningKind[] = [
   'breakCovered',
 ];
 
+const BLOCKING_KINDS: ScheduleWarningKind[] = ['understaffed', 'unassigned', 'overlap'];
+const HEADS_UP_KINDS: ScheduleWarningKind[] = ['shortShift', 'breakShifted', 'breakCovered'];
+
 export function ScheduleStep({
   employees,
   hours,
@@ -105,7 +108,7 @@ export function ScheduleStep({
     if (!onRegenerate) return;
     if (manuallyEdited) {
       const ok = window.confirm(
-        'Discard your manual changes and regenerate the schedule from the rules?'
+        'Discard manual changes and regenerate the schedule from the rules?'
       );
       if (!ok) return;
     }
@@ -120,12 +123,12 @@ export function ScheduleStep({
             <CheckCircle2 className="size-7 shrink-0 text-accent" aria-hidden />
             <div className="space-y-0.5">
               <h2 className="text-lg font-semibold tracking-tight">
-                Your schedule is ready
+                Schedule ready
               </h2>
               <p className="text-sm text-muted-foreground">
                 {prettyDate && <span className="font-medium text-foreground">{prettyDate} · </span>}
                 {employees.length} {employees.length === 1 ? 'employee' : 'employees'}
-                {warningCount > 0 ? ` · ${warningCount} ${warningCount === 1 ? 'thing' : 'things'} to check` : ' · no issues found'}
+                {warningCount > 0 ? ` · ${warningCount} ${warningCount === 1 ? 'item' : 'items'} to review` : ' · no issues found'}
               </p>
             </div>
           </div>
@@ -154,9 +157,9 @@ export function ScheduleStep({
 
       <Card className="no-print">
         <CardHeader>
-          <CardTitle className="text-base">What the colours mean</CardTitle>
+          <CardTitle className="text-base">Colour key</CardTitle>
           <CardDescription>
-            Each role has its own colour. Closed hours show faded cells.
+            Each role has its own colour. Closed hours appear faded.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -170,15 +173,16 @@ export function ScheduleStep({
             Schedule
             {onEditBlock && (
               <HelpBubble label="Editing the schedule">
-                Click any block to change what someone is doing for that hour. Drag a work
-                block onto another work block in the same hour to swap their jobs. Drag a
-                break block within the same row to move it. Job and break blocks are
-                editable; off-shift time is locked. Changes save automatically.
+                Click any block to change a staff member&apos;s assignment for that hour.
+                Drag a work block onto another work block in the same hour to swap jobs.
+                Drag a break block within the same row to move it. Job and break blocks
+                are editable; off-shift time is locked. Changes save automatically.
               </HelpBubble>
             )}
           </CardTitle>
           <CardDescription>
-            Time runs across the top in 15-minute steps. Each row is one employee.
+            Time runs across the top in 15-minute increments. Each row represents one
+            employee.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -212,48 +216,86 @@ export function ScheduleStep({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertTriangle className="size-4 text-accent" aria-hidden />
-              {warningCount} {warningCount === 1 ? 'thing' : 'things'} to check
+              {warningCount} {warningCount === 1 ? 'item' : 'items'} to review
             </CardTitle>
             <CardDescription>
-              These are not blocking — the schedule will still print. Just things to be
-              aware of.
+              These are non-blocking — the schedule will still print. Items are advisory
+              only.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => setFilter(null)}
-                className={
-                  'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors ' +
-                  (filter === null
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-border bg-background text-foreground hover:bg-secondary')
-                }
-              >
-                All
-                <span className="font-mono tabular-nums">{warningCount}</span>
-              </button>
-              {activeKinds.map((kind) => {
-                const isActive = filter === kind;
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => setFilter(isActive ? null : kind)}
-                    className={
-                      'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors ' +
-                      (isActive
-                        ? 'border-accent bg-accent text-accent-foreground'
-                        : 'border-accent/40 bg-accent/10 text-accent hover:bg-accent/20')
-                    }
-                    aria-pressed={isActive}
-                  >
-                    {KIND_LABEL[kind]}
-                    <span className="font-mono tabular-nums">{warningsByKind[kind].length}</span>
-                  </button>
-                );
-              })}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFilter(null)}
+                  className={
+                    'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors ' +
+                    (filter === null
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-background text-foreground hover:bg-secondary')
+                  }
+                >
+                  All
+                  <span className="font-mono tabular-nums">{warningCount}</span>
+                </button>
+              </div>
+
+              {activeKinds.filter((k) => BLOCKING_KINDS.includes(k)).length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-[10px] font-semibold tracking-wider text-foreground uppercase">Blocking</span>
+                  {activeKinds
+                    .filter((k) => BLOCKING_KINDS.includes(k))
+                    .map((kind) => {
+                      const isActive = filter === kind;
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          onClick={() => setFilter(isActive ? null : kind)}
+                          className={
+                            'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors ' +
+                            (isActive
+                              ? 'border-destructive bg-destructive text-destructive-foreground'
+                              : 'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20')
+                          }
+                          aria-pressed={isActive}
+                        >
+                          {KIND_LABEL[kind]}
+                          <span className="font-mono tabular-nums">{warningsByKind[kind].length}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+
+              {activeKinds.filter((k) => HEADS_UP_KINDS.includes(k)).length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Advisory</span>
+                  {activeKinds
+                    .filter((k) => HEADS_UP_KINDS.includes(k))
+                    .map((kind) => {
+                      const isActive = filter === kind;
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          onClick={() => setFilter(isActive ? null : kind)}
+                          className={
+                            'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors ' +
+                            (isActive
+                              ? 'border-accent bg-accent text-accent-foreground'
+                              : 'border-accent/40 bg-accent/10 text-accent hover:bg-accent/20')
+                          }
+                          aria-pressed={isActive}
+                        >
+                          {KIND_LABEL[kind]}
+                          <span className="font-mono tabular-nums">{warningsByKind[kind].length}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">

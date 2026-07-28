@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Check } from 'lucide-react';
 import { HelpBubble } from '@/components/HelpBubble';
 import type { BreakPeriod, Employee } from '@/lib/types';
 import {
@@ -164,7 +164,7 @@ function ConfirmStaffRow({
             variant="ghost"
             size="sm"
             onClick={addBreak}
-            className="w-fit justify-start px-2 text-xs"
+            className="w-fit min-w-[5.5rem] justify-start px-2 text-xs"
           >
             <Plus className="size-3.5" aria-hidden />
             Add break
@@ -174,7 +174,13 @@ function ConfirmStaffRow({
       <TableCell className="align-top">
         <div className="flex flex-col gap-1">
           {issues.length === 0 ? (
-            <span className="text-xs text-muted-foreground">Looks good</span>
+            <Badge
+              variant="outline"
+              className="w-fit gap-1 border-border bg-secondary text-foreground"
+            >
+              <Check className="size-3" aria-hidden />
+              Verified
+            </Badge>
           ) : (
             issues.slice(0, 1).map((iss, i) => (
               <Badge
@@ -244,13 +250,12 @@ export function ConfirmStaffStep({
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">
-          Check who&apos;s working today
+          Review staff &amp; shifts
           {extractedDate ? ` — ${extractedDate}` : ''}
         </h2>
         <p className="text-sm text-muted-foreground">
-          We found {employees.length} {employees.length === 1 ? 'person' : 'people'}. Please
-          check each name, shift time, and break — fix anything that looks wrong before
-          continuing.
+          {employees.length} {employees.length === 1 ? 'person' : 'people'} found. Review each
+          name, shift time and break, and correct any errors before continuing.
         </p>
       </div>
 
@@ -272,7 +277,7 @@ export function ConfirmStaffStep({
         <CardHeader>
           <CardTitle className="text-base">Staff on shift</CardTitle>
           <CardDescription>
-            Times are 24-hour. Breaks are unpaid — they show as grey on the final schedule.
+            Times are 24-hour. Breaks are unpaid and shown in grey on the final schedule.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -294,8 +299,8 @@ export function ConfirmStaffStep({
                     <span className="inline-flex items-center gap-1">
                       Breaks
                       <HelpBubble label="Breaks" size="sm">
-                        Unpaid rest breaks. Add as many as needed. Breaks show as grey cells
-                        on the final schedule so staff know when they&apos;re off the floor.
+                        Unpaid rest breaks. Add as many as needed. Breaks appear as grey
+                        cells on the final schedule so staff know when they are off the floor.
                       </HelpBubble>
                     </span>
                   </TableHead>
@@ -315,7 +320,7 @@ export function ConfirmStaffStep({
                 {employees.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                      No staff found. Go back and re-upload the PDF.
+                      No staff found. Return to the previous step and re-upload the PDF.
                     </TableCell>
                   </TableRow>
                 )}
@@ -355,11 +360,11 @@ export function ConfirmStaffStep({
         onBack={onBack}
         onContinue={onContinue}
         backLabel="Back: Upload"
-        continueLabel="Continue: Tag roles"
+        continueLabel="Continue: Assign roles"
         continueDisabled={!canContinue}
         continueHint={
           blockingCount > 0
-            ? `${blockingCount} row${blockingCount === 1 ? '' : 's'} need fixing before you can continue`
+            ? `${blockingCount} row${blockingCount === 1 ? '' : 's'} require correction before continuing`
             : undefined
         }
       />

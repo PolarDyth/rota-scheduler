@@ -39,9 +39,9 @@ export function Stepper({ current, completed, onStepClick }: Props) {
                 <span
                   className={cn(
                     'flex size-7 shrink-0 items-center justify-center border text-xs font-semibold transition-colors',
-                    isCurrent && 'border-accent bg-accent text-accent-foreground',
+                    isCurrent && 'border-foreground bg-foreground text-background',
                     isComplete && !isCurrent && 'border-accent bg-accent text-accent-foreground',
-                    isPast && !isComplete && 'border-foreground bg-foreground text-background',
+                    isPast && !isComplete && 'border-border bg-muted text-foreground',
                     !reachable && 'border-border bg-background text-muted-foreground'
                   )}
                 >

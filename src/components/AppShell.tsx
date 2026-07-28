@@ -44,16 +44,16 @@ export function AppShell({
       <header className="no-print border-b bg-background">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4">
           <div className="flex flex-col">
-            <span className="text-base font-semibold tracking-[0.18em]">
+            <span className="text-lg font-semibold tracking-[0.18em]">
               ROTA SCHEDULE
             </span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Daily job planner
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <AutosaveIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"

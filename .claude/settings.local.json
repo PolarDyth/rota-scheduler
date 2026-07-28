@@ -28,7 +28,8 @@
       "Bash(npx next *)",
       "Bash(curl -s -I http://localhost:3000/)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(echo \"tsc exit=$?\")"
     ]
   }
 }

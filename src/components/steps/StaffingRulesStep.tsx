@@ -92,24 +92,24 @@ export function StaffingRulesStep({
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">Set staffing rules</h2>
         <p className="text-sm text-muted-foreground">
-          Tell us how many people each role needs at different times of day. These decide
-          which jobs get filled first when there aren&apos;t enough people.
+          Set how many staff each role needs at different times of day. These rules
+          determine which jobs are filled first when staffing is limited.
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Rotation settings</CardTitle>
-          <CardDescription>How long people stay on each job before rotating.</CardDescription>
+          <CardDescription>How long staff remain on each job before rotating.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1 text-sm font-medium">
-              <Label htmlFor="max-role-block">Max hours on same role:</Label>
-              <HelpBubble label="Max hours on same role" size="sm">
-                The longest someone will be kept on the same job before being rotated to a
-                different one. Set 0 to allow them to stay all day. Specialist roles are
-                exempt — tagged staff stay on their role.
+              <Label htmlFor="max-role-block">Maximum hours on the same role:</Label>
+              <HelpBubble label="Maximum hours on the same role" size="sm">
+                The longest a staff member will remain on the same job before being rotated
+                to a different one. Set 0 to allow them to remain all day. Specialist roles
+                are exempt — tagged staff remain on their role.
               </HelpBubble>
             </span>
             <Input
@@ -124,7 +124,7 @@ export function StaffingRulesStep({
               className="h-8 w-20"
             />
             <span className="text-xs text-muted-foreground">
-              Set 0 for no limit. Specialist roles ignore this.
+              Set 0 for no limit. Specialist roles are exempt.
             </span>
           </div>
         </CardContent>
@@ -134,15 +134,19 @@ export function StaffingRulesStep({
         <CardHeader>
           <CardTitle className="text-base">Staff by role</CardTitle>
           <CardDescription>
-            Each role shows the time windows where it needs cover. Add as many windows as
-            you need.
+            Each role shows the time windows where cover is required. Add as many windows
+            as needed.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="customer">
             <TabsList className="w-full justify-start overflow-x-auto">
               {GROUPS.map((group) => (
-                <TabsTrigger key={group.id} value={group.id}>
+                <TabsTrigger
+                  key={group.id}
+                  value={group.id}
+                  className="data-[state=active]:bg-foreground data-[state=active]:text-background"
+                >
                   {group.label}
                 </TabsTrigger>
               ))}
@@ -170,7 +174,7 @@ export function StaffingRulesStep({
                         <div className="space-y-1.5">
                           {jobRules.length === 0 && (
                             <p className="text-xs italic text-muted-foreground">
-                              No windows set — this role won&apos;t be staffed.
+                              No windows set — this role will not be staffed.
                             </p>
                           )}
                           {jobRules.map((r) => {
@@ -232,7 +236,7 @@ export function StaffingRulesStep({
                                   <HelpBubble label="No max" size="sm">
                                     Fills this role with as many eligible staff as possible
                                     during the window, instead of a fixed number. Useful for
-                                    specialist roles like Stock Controller.
+                                    specialist roles such as Stock Controller.
                                   </HelpBubble>
                                 </div>
                                 <Button
@@ -279,9 +283,9 @@ export function StaffingRulesStep({
           </AccordionTrigger>
           <AccordionContent className="pt-2">
             <p className="mb-3 text-xs text-muted-foreground">
-              When staff is tight, higher-priority roles fill first. Specialist roles are
-              always assigned to tagged staff regardless of order — reordering them only
-              affects warning sequence.
+              When staffing is constrained, higher-priority roles fill first. Specialist
+              roles are always assigned to tagged staff regardless of order — reordering
+              them affects warning sequence only.
             </p>
             <PriorityOrderEditor order={priorityOrder} onChange={onPriorityChange} />
           </AccordionContent>
